@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FLATBUFFERS_VERSION: "25.12.19" # keep in step with FLATC_VERSION in scripts/verify.py and OyiEngine's vcpkg
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags, for flatc --conform against the previous release
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
+
+      - name: ruff
+        run: |
+          pip install ruff
+          ruff check scripts
+          ruff format --check scripts
+
+      - name: flatc ${{ env.FLATBUFFERS_VERSION }}
+        run: |
+          curl -fsSL -o flatc.zip "https://github.com/google/flatbuffers/releases/download/v${FLATBUFFERS_VERSION}/Linux.flatc.binary.g++-13.zip"
+          mkdir -p "$RUNNER_TEMP/flatc"
+          unzip -q flatc.zip -d "$RUNNER_TEMP/flatc"
+          chmod +x "$RUNNER_TEMP/flatc/flatc"
+          echo "$RUNNER_TEMP/flatc" >> "$GITHUB_PATH"
+
+      # C++ headers and the C# runtime come from the same tag as flatc: the NuGet package lags
+      # behind and lacks the FLATBUFFERS_25_12_19 version check the generated C# calls.
+      - name: flatbuffers sources (include/, net/)
+        run: |
+          git clone --quiet --depth 1 --branch "v${FLATBUFFERS_VERSION}" --filter=blob:none --sparse \
+            https://github.com/google/flatbuffers.git "$RUNNER_TEMP/flatbuffers"
+          git -C "$RUNNER_TEMP/flatbuffers" sparse-checkout set include net
+
+      - name: Generate, build, round trip
+        env:
+          CXX: g++
+        run: python scripts/verify.py --flatbuffers-root "$RUNNER_TEMP/flatbuffers"
