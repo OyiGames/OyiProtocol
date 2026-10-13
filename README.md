@@ -43,13 +43,18 @@ formats are defined by the engine, not by this schema.
 
 ## Versions
 
-- `protocol_version` (in `Hello` and `Welcome`) changes only on an incompatible change. It is
-  recorded in the schema header as `// protocol_version: N`.
-- Compatible changes follow FlatBuffers' rules: new fields are appended at the end of a table, new
-  union members at the end of the union, nothing is removed or reordered, ids never change. CI runs
-  `flatc --conform` against the previous tag to enforce this.
-- Tags are `vMAJOR.MINOR.PATCH`: MAJOR = `protocol_version`, MINOR = compatible additions, PATCH =
-  comments and tooling. CI fails a tag whose MAJOR differs from the schema header.
+The protocol is **0.x**: it is not stable yet and promises no compatibility between versions.
+
+- Messages and fields may be removed, reordered or retyped; no deprecation or migration is kept.
+- `protocol_version` (in `Hello` and `Welcome`, recorded in the schema header as
+  `// protocol_version: N`) goes up by one with every change that breaks the wire format, which is
+  any change `flatc --conform` rejects against the previous tag. Peers pinned to different versions
+  then fail the handshake with `Unsupported` instead of misreading each other's bytes. CI fails an
+  incompatible schema whose `protocol_version` did not go up.
+- Tags are `v0.<protocol_version>.<PATCH>`. PATCH covers everything that keeps the wire format
+  compatible: appended fields, comments, tooling. CI fails a tag whose MINOR differs from the schema
+  header.
+- Versioning for 1.0 will be decided when the protocol is declared stable.
 - Every tag has an entry in [`schema/CHANGELOG.md`](schema/CHANGELOG.md).
 
 ## Consuming the schema

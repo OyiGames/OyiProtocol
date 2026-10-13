@@ -2,7 +2,7 @@
 // two channels. OyiEngine (C++) and OyiEditor (C#) consume this file as a submodule pinned to a
 // tag; see README.md for the versioning rules.
 //
-// protocol_version: 1 (Hello.protocol_version / Welcome.protocol_version; the tag's MAJOR).
+// protocol_version: 1 (Hello.protocol_version / Welcome.protocol_version; while 0.x, the tag's MINOR).
 //
 // Framing: every frame is a 32-bit little-endian byte count followed by one Envelope buffer with
 // the file identifier "OYIP". The command channel is request/response and ordered; the stream
