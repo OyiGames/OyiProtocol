@@ -4,10 +4,11 @@ check that frames written by one language read back in the other. CI runs exactl
 
 Checks, in order:
   1. flatc is the pinned version (OyiEngine's vcpkg port uses the same one).
-  2. Tracked files use LF endings; everything but Markdown is ASCII.
-  3. The schema's "protocol_version: N" header line matches the tag's MAJOR (tag builds only).
-  4. flatc --conform against the newest earlier v* tag (skipped before the first tag).
-  5. Bindings generate, both programs build, and the 2x2 read/write matrix passes.
+  2. Tracked files use LF endings; everything but Markdown and third_party/ is ASCII.
+  3. The vendored C# runtime (third_party/flatbuffers-net) is the same release as flatc.
+  4. The schema's "protocol_version: N" header line matches the tag's MAJOR (tag builds only).
+  5. flatc --conform against the newest earlier v* tag (skipped before the first tag).
+  6. Bindings generate, both programs build, and the 2x2 read/write matrix passes.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pathlib import Path
 FLATC_VERSION = "25.12.19"
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = ROOT / "schema" / "oyi_protocol.fbs"
+CSHARP_RUNTIME = ROOT / "third_party" / "flatbuffers-net"
 CPP_FLAGS = ["--cpp", "--scoped-enums", "--no-includes"]  # same as OyiEngine's oyi_rpc
 
 
@@ -43,17 +45,26 @@ def check_flatc(flatc: str) -> None:
 
 
 def check_sources() -> None:
-    """Every tracked file uses LF endings; everything but the Markdown docs is ASCII (ADR-0021)."""
+    """Every tracked file uses LF endings; our own non-Markdown files are ASCII (ADR-0021)."""
     bad: list[str] = []
     for rel in git("ls-files").splitlines():
         data = (ROOT / rel).read_bytes()
         if b"\r\n" in data:
             bad.append(f"{rel}: CRLF line endings")
-        if not rel.endswith(".md") and any(byte > 0x7F for byte in data):
+        own = not rel.endswith(".md") and not rel.startswith("third_party/")
+        if own and any(byte > 0x7F for byte in data):
             bad.append(f"{rel}: non-ASCII bytes")
     if bad:
         sys.exit("error: source conventions\n  " + "\n  ".join(bad))
-    print("ok: LF endings everywhere, ASCII outside Markdown")
+    print("ok: LF endings everywhere, ASCII outside Markdown and third_party/")
+
+
+def check_vendored_runtime() -> None:
+    marker = f"FLATBUFFERS_{FLATC_VERSION.replace('.', '_')}()"
+    constants = CSHARP_RUNTIME / "FlatBuffers" / "FlatBufferConstants.cs"
+    if marker not in constants.read_text(encoding="utf-8-sig"):
+        sys.exit(f"error: {constants.relative_to(ROOT).as_posix()} lacks {marker}; re-vendor it with flatc")
+    print(f"ok: vendored C# runtime is {FLATC_VERSION}")
 
 
 def schema_protocol_version() -> int:
@@ -107,7 +118,7 @@ def build_and_roundtrip(flatc: str, cxx: str, flatbuffers_root: Path, out: Path)
 
     cs_out = out / "csharp"
     project = ROOT / "tests" / "csharp" / "RoundTrip.csproj"
-    inputs = [f"-p:GeneratedDir={gen_cs}", f"-p:FlatBuffersRoot={flatbuffers_root}"]
+    inputs = [f"-p:GeneratedDir={gen_cs}"]
     run(
         [
             "dotnet",
@@ -141,7 +152,7 @@ def main() -> None:
         "--flatbuffers-root",
         type=Path,
         required=True,
-        help=f"google/flatbuffers checkout at v{FLATC_VERSION} (include/ and net/)",
+        help=f"google/flatbuffers checkout at v{FLATC_VERSION}; only include/ (the C++ headers) is used",
     )
     parser.add_argument("--cxx", default=os.environ.get("CXX", "c++"))
     parser.add_argument("--out", type=Path, default=ROOT / "build" / "verify")
@@ -159,6 +170,7 @@ def main() -> None:
 
     check_flatc(args.flatc)
     check_sources()
+    check_vendored_runtime()
     check_tag(tag)
     check_conform(args.flatc, args.out)
     build_and_roundtrip(args.flatc, args.cxx, args.flatbuffers_root.resolve(), args.out.resolve())

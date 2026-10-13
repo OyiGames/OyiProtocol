@@ -18,6 +18,9 @@ OyiEngine（C++，`oyi serve --rpc`）与 OyiEditor（C#）之间的线上协议
 | `Response` | Command | 服务端 -> 客户端，回应 `Request.id` | `id`、`ok`、`error_code`、`message`、`payload` |
 | `StreamFrame` | Stream | 服务端 -> 客户端 | `stream`（必填）、`sequence`、`payload` |
 
+`Welcome.schema_hash` 是引擎这次构建里组件反射布局的指纹（`oyi --version --json` 里的 `schema`），不是本 schema
+的哈希。值相同表示组件快照二进制兼容。它由引擎在构建时从 C++ 头文件算出，客户端只能拿它和已知的值比较，无法自己重算。
+
 命令通道是请求 / 应答、有序；流通道承载快照、日志、profiler 采样，可以丢帧。`Request.command` 背后的命令集和各
 payload 的格式由引擎定义，不在本 schema 里。
 
@@ -45,20 +48,22 @@ payload 的格式由引擎定义，不在本 schema 里。
 
 - C++（与 OyiEngine 相同）：`flatc --cpp --scoped-enums --no-includes`，在生成的头文件之前 include
   `<flatbuffers/flatbuffers.h>`。
-- C#：`flatc --csharp`。生成的代码调用 `FlatBufferConstants.FLATBUFFERS_25_12_19()`，而 NuGet 上的
-  `Google.FlatBuffers` 没有这个方法（它最新的版本比 flatc 25.12.19 旧）。请像
-  [`tests/csharp/RoundTrip.csproj`](tests/csharp/RoundTrip.csproj) 那样，从 google/flatbuffers `v25.12.19` 的
-  `net/FlatBuffers` 编译运行库。
+- C#：`flatc --csharp`，并在同一个项目里 import
+  [`third_party/flatbuffers-net/OyiProtocol.FlatBuffers.props`](third_party/flatbuffers-net)，把 vendor 的运行库
+  （google/flatbuffers `v25.12.19` 的 `net/FlatBuffers`）一起编译。NuGet 上的 `Google.FlatBuffers` 不能用：生成的代码调用
+  `FlatBufferConstants.FLATBUFFERS_25_12_19()`，而最新的包（25.2.10）没有这个方法。可参考
+  [`tests/csharp/RoundTrip.csproj`](tests/csharp/RoundTrip.csproj)。
 
 ## 本地验证
 
 ```sh
-python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <google/flatbuffers v25.12.19> --cxx <C++20 编译器>
+python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <google/flatbuffers v25.12.19，用其 include/> --cxx <C++20 编译器>
 ```
 
-脚本检查 flatc 版本与源码约定，对上一个 tag 跑 `flatc --conform`，生成两种绑定，编译 [`tests/cpp`](tests/cpp) 与
+脚本检查 flatc 版本、源码约定与 vendor 运行库的版本，对上一个 tag 跑 `flatc --conform`，生成两种绑定，编译 [`tests/cpp`](tests/cpp) 与
 [`tests/csharp`](tests/csharp)（.NET 10），并让两个程序互读对方写出的帧。
 
 ## 许可
 
-MIT，见 [LICENSE](LICENSE)。
+MIT，见 [LICENSE](LICENSE)。`third_party/flatbuffers-net` 为 Apache-2.0，见其
+[LICENSE](third_party/flatbuffers-net/LICENSE)。

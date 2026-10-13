@@ -1,0 +1,11 @@
+<Project>
+
+  <!--
+    Compiles the vendored FlatBuffers C# runtime (google/flatbuffers v25.12.19, net/FlatBuffers) into
+    the importing project. Import it into exactly one assembly; others reference that assembly.
+  -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)FlatBuffers/*.cs" Link="FlatBuffers/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

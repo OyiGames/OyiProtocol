@@ -1,10 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Cross-language round trip, C# side. Two inputs come from the command line:
-      GeneratedDir     C# output of flatc for schema/oyi_protocol.fbs
-      FlatBuffersRoot  a checkout of google/flatbuffers at the flatc tag (net/FlatBuffers is compiled
-                       in; the NuGet package lags flatc and lacks FLATBUFFERS_25_12_19)
+    Cross-language round trip, C# side. GeneratedDir (command line) is the C# output of flatc for
+    schema/oyi_protocol.fbs; the FlatBuffers runtime comes from third_party/flatbuffers-net, the same
+    way OyiEditor consumes it.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -15,14 +14,14 @@
     <RootNamespace>Oyi.Protocol.RoundTrip</RootNamespace>
   </PropertyGroup>
 
+  <Import Project="../../third_party/flatbuffers-net/OyiProtocol.FlatBuffers.props" />
+
   <ItemGroup>
     <Compile Include="$(GeneratedDir)/**/*.cs" />
-    <Compile Include="$(FlatBuffersRoot)/net/FlatBuffers/*.cs" />
   </ItemGroup>
 
   <Target Name="CheckInputs" BeforeTargets="CoreCompile">
     <Error Condition="'$(GeneratedDir)' == '' Or !Exists('$(GeneratedDir)')" Text="Pass -p:GeneratedDir=&lt;flatc C# output dir&gt;" />
-    <Error Condition="'$(FlatBuffersRoot)' == '' Or !Exists('$(FlatBuffersRoot)/net/FlatBuffers')" Text="Pass -p:FlatBuffersRoot=&lt;google/flatbuffers checkout&gt;" />
   </Target>
 
 </Project>

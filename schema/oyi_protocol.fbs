@@ -29,6 +29,9 @@ table Welcome {
     protocol_version: uint32;
     capabilities: uint64;
     engine_version: string;
+    /// Fingerprint of the engine build's reflected component layouts (the "schema" in
+    /// `oyi --version --json`), not of this file. Equal values mean component snapshots are
+    /// binary compatible; clients only compare it, they cannot recompute it.
     schema_hash: uint64;
     session_id: uint32;
 }

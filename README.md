@@ -19,6 +19,11 @@ Every frame carries one `Envelope { channel, message }`. `message` is a union of
 | `Response` | Command | server -> client, answers `Request.id` | `id`, `ok`, `error_code`, `message`, `payload` |
 | `StreamFrame` | Stream | server -> client | `stream` (required), `sequence`, `payload` |
 
+`Welcome.schema_hash` fingerprints the engine build's reflected component layouts (the `schema` in
+`oyi --version --json`), not this schema. Equal values mean component snapshots are binary
+compatible. The engine computes it from its C++ headers at build time, so clients compare it with a
+value they already know; they cannot recompute it.
+
 The command channel is request/response and ordered. The stream channel carries snapshots, logs and
 profiler samples and may drop frames. The command set behind `Request.command` and the payload
 formats are defined by the engine, not by this schema.
@@ -54,21 +59,24 @@ Add the repository as a submodule and check out a tag; generate code from
 
 - C++ (as OyiEngine does): `flatc --cpp --scoped-enums --no-includes`, include
   `<flatbuffers/flatbuffers.h>` before the generated header.
-- C#: `flatc --csharp`. The generated code calls `FlatBufferConstants.FLATBUFFERS_25_12_19()`, which
-  the `Google.FlatBuffers` NuGet package does not have (its newest release is older than flatc
-  25.12.19). Compile the runtime from `net/FlatBuffers` of google/flatbuffers at tag `v25.12.19`,
-  as [`tests/csharp/RoundTrip.csproj`](tests/csharp/RoundTrip.csproj) does.
+- C#: `flatc --csharp`, and import
+  [`third_party/flatbuffers-net/OyiProtocol.FlatBuffers.props`](third_party/flatbuffers-net) into the
+  same project to compile the vendored runtime (google/flatbuffers `v25.12.19`, `net/FlatBuffers`).
+  The `Google.FlatBuffers` NuGet package does not work: the generated code calls
+  `FlatBufferConstants.FLATBUFFERS_25_12_19()`, and the newest package (25.2.10) does not have it.
+  [`tests/csharp/RoundTrip.csproj`](tests/csharp/RoundTrip.csproj) is a working example.
 
 ## Verifying locally
 
 ```sh
-python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <google/flatbuffers at v25.12.19> --cxx <C++20 compiler>
+python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <google/flatbuffers at v25.12.19, for include/> --cxx <C++20 compiler>
 ```
 
-The script checks the flatc version and source conventions, runs `flatc --conform` against the
+The script checks the flatc version, source conventions and the vendored runtime's version, runs `flatc --conform` against the
 previous tag, generates both bindings, builds [`tests/cpp`](tests/cpp) and
 [`tests/csharp`](tests/csharp) (.NET 10), and has each program read the frames the other wrote.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). `third_party/flatbuffers-net` is Apache-2.0, see its
+[LICENSE](third_party/flatbuffers-net/LICENSE).
