@@ -2,6 +2,7 @@
 //
 //   roundtrip write <file>   writes the reference frames
 //   roundtrip read <file>    verifies a file written by either language
+//   roundtrip check-identifier   a buffer with a foreign file identifier must not verify
 //
 // The C# side (tests/csharp) writes and checks the same frames, so a file written by one language
 // must read back in the other. The bindings are generated with the flags OyiEngine uses
@@ -190,6 +191,21 @@ int Read(const char* path) {
     return gFailures == 0 ? 0 : 1;
 }
 
+int CheckIdentifier() {
+    flatbuffers::FlatBufferBuilder builder;
+    auto hello = proto::CreateHelloDirect(builder, kProtocolVersion, 0, "", "roundtrip");
+    builder.Finish(proto::CreateEnvelope(builder, proto::Channel::Command, proto::Message::Hello, hello.Union()),
+                   "XXXX");
+    const uint8_t* buffer = builder.GetBufferPointer();
+    flatbuffers::Verifier verifier(buffer, builder.GetSize());
+    Check(!proto::EnvelopeBufferHasIdentifier(buffer), "EnvelopeBufferHasIdentifier rejects XXXX");
+    Check(!proto::VerifyEnvelopeBuffer(verifier), "VerifyEnvelopeBuffer rejects XXXX");
+    if (gFailures == 0) {
+        std::printf("cpp: a foreign file identifier fails verification\n");
+    }
+    return gFailures == 0 ? 0 : 1;
+}
+
 int Write(const char* path) {
     const std::vector<uint8_t> frames = BuildFrames();
     std::ofstream file(path, std::ios::binary);
@@ -211,6 +227,9 @@ int main(int argc, char** argv) {
     if (argc == 3 && std::string_view(argv[1]) == "read") {
         return Read(argv[2]);
     }
-    std::fprintf(stderr, "usage: roundtrip write|read <file>\n");
+    if (argc == 2 && std::string_view(argv[1]) == "check-identifier") {
+        return CheckIdentifier();
+    }
+    std::fprintf(stderr, "usage: roundtrip write|read <file> | check-identifier\n");
     return 2;
 }

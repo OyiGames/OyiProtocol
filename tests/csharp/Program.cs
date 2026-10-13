@@ -2,6 +2,7 @@
 //
 //   roundtrip write <file>   writes the reference frames
 //   roundtrip read <file>    verifies a file written by either language
+//   roundtrip check-identifier   a buffer with a foreign file identifier must be rejected
 //
 // Mirrors tests/cpp/roundtrip.cpp frame for frame.
 
@@ -204,6 +205,27 @@ namespace Oyi.Protocol.RoundTrip
             return failures == 0 ? 0 : 1;
         }
 
+        // The vendored runtime's Verifier ignores the file identifier (see
+        // third_party/flatbuffers-net/README.md), so readers must also call EnvelopeBufferHasIdentifier.
+        // The second check pins that upstream behaviour: when it fails, upstream fixed the bug, and the
+        // README note can go.
+        private static int CheckIdentifier()
+        {
+            var builder = new FlatBufferBuilder(64);
+            var hello = Hello.CreateHello(builder, ProtocolVersion, 0, builder.CreateString(""),
+                builder.CreateString("roundtrip"));
+            builder.Finish(Envelope.CreateEnvelope(builder, Channel.Command, Message.Hello, hello.Value).Value, "XXXX");
+            var buffer = new ByteBuffer(builder.SizedByteArray());
+            Check(!Envelope.EnvelopeBufferHasIdentifier(buffer), "EnvelopeBufferHasIdentifier rejects XXXX");
+            Check(Envelope.VerifyEnvelope(buffer),
+                "VerifyEnvelope now checks the file identifier: upstream fixed it, update third_party/flatbuffers-net/README.md");
+            if (failures == 0)
+            {
+                Console.WriteLine("csharp: a foreign file identifier is rejected by EnvelopeBufferHasIdentifier (VerifyEnvelope alone does not)");
+            }
+            return failures == 0 ? 0 : 1;
+        }
+
         private static int Write(string path)
         {
             byte[] frames = BuildFrames();
@@ -222,7 +244,11 @@ namespace Oyi.Protocol.RoundTrip
             {
                 return Read(args[1]);
             }
-            Console.Error.WriteLine("usage: roundtrip write|read <file>");
+            if (args.Length == 1 && args[0] == "check-identifier")
+            {
+                return CheckIdentifier();
+            }
+            Console.Error.WriteLine("usage: roundtrip write|read <file> | check-identifier");
             return 2;
         }
     }

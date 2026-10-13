@@ -3,6 +3,13 @@
 Message additions and removals per tag, newest first. Version rules are in the README: while the
 protocol is 0.x, tags are `v0.<protocol_version>.<PATCH>`.
 
+## v0.1.1 (protocol_version 1)
+
+No wire change. The vendored C# `Verifier` ignores the file identifier (upstream bug, documented in
+`third_party/flatbuffers-net/README.md`): C# readers must also call
+`Envelope.EnvelopeBufferHasIdentifier`. Both round-trip programs now check that a buffer with a
+foreign identifier is rejected.
+
 ## v0.1.0 (protocol_version 1)
 
 First release.
