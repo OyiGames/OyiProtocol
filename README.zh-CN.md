@@ -35,11 +35,15 @@ payload 的格式由引擎定义，不在本 schema 里。
 
 ## 版本
 
-- `protocol_version`（`Hello` 与 `Welcome` 里）只在不兼容时变化，记录在 schema 头部的 `// protocol_version: N`。
-- 兼容改动遵守 FlatBuffers 规则：新字段追加在 table 末尾，新消息追加在 union 末尾，不删除、不调序、不改 id。CI 用
-  `flatc --conform` 对上一个 tag 检查。
-- tag 为 `vMAJOR.MINOR.PATCH`：MAJOR = `protocol_version`，MINOR = 兼容新增，PATCH = 注释与工具改动。tag 的 MAJOR
-  与 schema 头部不一致时 CI 失败。
+协议处于 **0.x**：还不稳定，版本之间不承诺兼容。
+
+- 消息和字段可以删除、调序、改类型，不保留弃用或迁移。
+- `protocol_version`（`Hello` 与 `Welcome` 里，记录在 schema 头部的 `// protocol_version: N`）在每次破坏线上格式时加一，
+  即任何被 `flatc --conform` 对上一个 tag 拒绝的改动。这样锁在不同版本的两端会在握手时以 `Unsupported` 失败，而不是读错对方的字节。
+  schema 不兼容而 `protocol_version` 没有增加时 CI 失败。
+- tag 为 `v0.<protocol_version>.<PATCH>`。PATCH 包含所有保持线上兼容的改动：追加字段、注释、工具。tag 的 MINOR 与
+  schema 头部不一致时 CI 失败。
+- 1.0 的版本规则等协议宣布稳定时再定。
 - 每个 tag 在 [`schema/CHANGELOG.md`](schema/CHANGELOG.md) 有一条记录。
 
 ## 使用 schema

@@ -6,8 +6,9 @@ Checks, in order:
   1. flatc is the pinned version (OyiEngine's vcpkg port uses the same one).
   2. Tracked files use LF endings; everything but Markdown and third_party/ is ASCII.
   3. The vendored C# runtime (third_party/flatbuffers-net) is the same release as flatc.
-  4. The schema's "protocol_version: N" header line matches the tag's MAJOR (tag builds only).
-  5. flatc --conform against the newest earlier v* tag (skipped before the first tag).
+  4. Tag builds: the tag is v0.<protocol_version>.<PATCH>, read from the schema's header line.
+  5. flatc --conform against the newest earlier v* tag; an incompatible schema must raise
+     protocol_version (skipped before the first tag).
   6. Bindings generate, both programs build, and the 2x2 read/write matrix passes.
 """
 
@@ -67,14 +68,19 @@ def check_vendored_runtime() -> None:
     print(f"ok: vendored C# runtime is {FLATC_VERSION}")
 
 
-def schema_protocol_version() -> int:
-    match = re.search(r"^// protocol_version: (\d+)\b", SCHEMA.read_text(encoding="ascii"), re.MULTILINE)
+def protocol_version_of(text: str, where: str) -> int:
+    match = re.search(r"^// protocol_version: (\d+)\b", text, re.MULTILINE)
     if match is None:
-        sys.exit("error: schema header lacks a '// protocol_version: N' line")
+        sys.exit(f"error: {where} lacks a '// protocol_version: N' header line")
     return int(match.group(1))
 
 
+def schema_protocol_version() -> int:
+    return protocol_version_of(SCHEMA.read_text(encoding="ascii"), "schema/oyi_protocol.fbs")
+
+
 def check_tag(tag: str | None) -> None:
+    """While the protocol is 0.x, tags are v0.<protocol_version>.<PATCH>. Rules for 1.0 need an ADR first."""
     version = schema_protocol_version()
     if not tag:
         print(f"ok: protocol_version {version} (not a tag build)")
@@ -82,8 +88,11 @@ def check_tag(tag: str | None) -> None:
     match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", tag)
     if match is None:
         sys.exit(f"error: tag '{tag}' is not vMAJOR.MINOR.PATCH")
-    if int(match.group(1)) != version:
-        sys.exit(f"error: tag {tag} has MAJOR {match.group(1)} but the schema says protocol_version {version}")
+    major, minor = int(match.group(1)), int(match.group(2))
+    if major != 0:
+        sys.exit(f"error: tag {tag}: the protocol is 0.x; versioning for 1.0 is not defined yet")
+    if minor != version:
+        sys.exit(f"error: tag {tag} has MINOR {minor} but the schema says protocol_version {version}")
     print(f"ok: tag {tag} matches protocol_version {version}")
 
 
@@ -96,14 +105,27 @@ def previous_tag() -> str | None:
 
 
 def check_conform(flatc: str, out: Path) -> None:
+    """Breaking changes are allowed while 0.x, but only with a protocol_version bump: peers pinned to
+    different tags must fail the handshake ("Unsupported"), not misread each other's bytes."""
     tag = previous_tag()
     if tag is None:
         print("skip: flatc --conform (no earlier v* tag)")
         return
+    text = git("show", f"{tag}:schema/oyi_protocol.fbs") + "\n"
+    before, now = protocol_version_of(text, f"{tag}:schema/oyi_protocol.fbs"), schema_protocol_version()
+    if now < before:
+        sys.exit(f"error: protocol_version went down from {before} ({tag}) to {now}")
     base = out / f"conform-{tag}.fbs"
-    base.write_text(git("show", f"{tag}:schema/oyi_protocol.fbs") + "\n", encoding="ascii")
-    run([flatc, "--conform", base, SCHEMA])
-    print(f"ok: schema conforms to {tag}")
+    base.write_text(text, encoding="ascii")
+    print(f"+ {flatc} --conform {base} {SCHEMA}", flush=True)
+    result = subprocess.run([flatc, "--conform", str(base), str(SCHEMA)], capture_output=True, text=True)
+    if result.returncode == 0:
+        print(f"ok: schema conforms to {tag}")
+    elif now > before:
+        print(f"ok: incompatible with {tag}, and protocol_version went from {before} to {now}")
+    else:
+        sys.stderr.write(result.stdout + result.stderr)
+        sys.exit(f"error: schema is incompatible with {tag} but protocol_version is still {now}; bump it")
 
 
 def build_and_roundtrip(flatc: str, cxx: str, flatbuffers_root: Path, out: Path) -> None:
