@@ -39,13 +39,12 @@ jobs:
           chmod +x "$RUNNER_TEMP/flatc/flatc"
           echo "$RUNNER_TEMP/flatc" >> "$GITHUB_PATH"
 
-      # C++ headers and the C# runtime come from the same tag as flatc: the NuGet package lags
-      # behind and lacks the FLATBUFFERS_25_12_19 version check the generated C# calls.
-      - name: flatbuffers sources (include/, net/)
+      # C++ headers from the same tag as flatc. The C# runtime is vendored in third_party/.
+      - name: flatbuffers C++ headers
         run: |
           git clone --quiet --depth 1 --branch "v${FLATBUFFERS_VERSION}" --filter=blob:none --sparse \
             https://github.com/google/flatbuffers.git "$RUNNER_TEMP/flatbuffers"
-          git -C "$RUNNER_TEMP/flatbuffers" sparse-checkout set include net
+          git -C "$RUNNER_TEMP/flatbuffers" sparse-checkout set include
 
       - name: Generate, build, round trip
         env:
