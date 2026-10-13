@@ -9,7 +9,8 @@ Checks, in order:
   4. Tag builds: the tag is v0.<protocol_version>.<PATCH>, read from the schema's header line.
   5. flatc --conform against the newest earlier v* tag; an incompatible schema must raise
      protocol_version (skipped before the first tag).
-  6. Bindings generate, both programs build, and the 2x2 read/write matrix passes.
+  6. Bindings generate, both programs build, the 2x2 read/write matrix passes, and a buffer with a
+     foreign file identifier is rejected on both sides.
 """
 
 from __future__ import annotations
@@ -165,6 +166,9 @@ def build_and_roundtrip(flatc: str, cxx: str, flatbuffers_root: Path, out: Path)
         for frames in (from_cpp, from_cs):
             run([*reader, "read", frames])
     print("ok: C++ and C# read each other's frames")
+    for program in (cpp, cs):
+        run([*program, "check-identifier"])
+    print("ok: a foreign file identifier is rejected on both sides")
 
 
 def main() -> None:
