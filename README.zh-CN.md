@@ -48,20 +48,21 @@ payload 的格式由引擎定义，不在本 schema 里。
 
 ## 使用 schema
 
-以子模块引入本仓库并检出某个 tag，用 **flatc 25.12.19** 从 `schema/oyi_protocol.fbs` 生成代码。
+以子模块引入本仓库并检出某个 tag，用 [OyiGames/flatbuffers](https://github.com/OyiGames/flatbuffers)（上游加修复；release
+`v25.12.19-oyi.1` 提供 Linux、Windows、macOS 的 flatc）的 **flatc 25.12.19** 从 `schema/oyi_protocol.fbs` 生成代码。
 
 - C++（与 OyiEngine 相同）：`flatc --cpp --scoped-enums --no-includes`，在生成的头文件之前 include
   `<flatbuffers/flatbuffers.h>`。
 - C#：`flatc --csharp`，并在同一个项目里 import
   [`third_party/flatbuffers-net/OyiProtocol.FlatBuffers.props`](third_party/flatbuffers-net)，把 vendor 的运行库
-  （google/flatbuffers `v25.12.19` 的 `net/FlatBuffers`）一起编译。NuGet 上的 `Google.FlatBuffers` 不能用：生成的代码调用
-  `FlatBufferConstants.FLATBUFFERS_25_12_19()`，而最新的包（25.2.10）没有这个方法。可参考
+  （OyiGames/flatbuffers `v25.12.19-oyi.1` 的 `net/FlatBuffers`）一起编译。NuGet 上的 `Google.FlatBuffers` 不能用：生成的代码调用
+  `FlatBufferConstants.FLATBUFFERS_25_12_19()`，而最新的包（25.2.10）没有这个方法；上游的 Verifier 也不检查 file identifier。可参考
   [`tests/csharp/RoundTrip.csproj`](tests/csharp/RoundTrip.csproj)。
 
 ## 本地验证
 
 ```sh
-python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <google/flatbuffers v25.12.19，用其 include/> --cxx <C++20 编译器>
+python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <OyiGames/flatbuffers v25.12.19-oyi.1，用其 include/> --cxx <C++20 编译器>
 ```
 
 脚本检查 flatc 版本、源码约定与 vendor 运行库的版本，对上一个 tag 跑 `flatc --conform`，生成两种绑定，编译 [`tests/cpp`](tests/cpp) 与

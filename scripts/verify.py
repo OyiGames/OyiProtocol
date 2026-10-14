@@ -178,7 +178,7 @@ def main() -> None:
         "--flatbuffers-root",
         type=Path,
         required=True,
-        help=f"google/flatbuffers checkout at v{FLATC_VERSION}; only include/ (the C++ headers) is used",
+        help="OyiGames/flatbuffers checkout at the tag in ci.yml; only include/ (the C++ headers) is used",
     )
     parser.add_argument("--cxx", default=os.environ.get("CXX", "c++"))
     parser.add_argument("--out", type=Path, default=ROOT / "build" / "verify")

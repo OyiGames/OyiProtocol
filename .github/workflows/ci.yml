@@ -8,7 +8,9 @@ on:
   workflow_dispatch:
 
 env:
-  FLATBUFFERS_VERSION: "25.12.19" # keep in step with FLATC_VERSION in scripts/verify.py and OyiEngine's vcpkg
+  # OyiGames/flatbuffers (upstream + fixes). Keep in step with FLATC_VERSION in scripts/verify.py,
+  # third_party/flatbuffers-net and OyiEngine's vcpkg overlay port.
+  FLATBUFFERS_TAG: v25.12.19-oyi.1
 
 jobs:
   verify:
@@ -31,19 +33,19 @@ jobs:
           ruff check scripts
           ruff format --check scripts
 
-      - name: flatc ${{ env.FLATBUFFERS_VERSION }}
+      - name: flatc ${{ env.FLATBUFFERS_TAG }}
         run: |
-          curl -fsSL -o flatc.zip "https://github.com/google/flatbuffers/releases/download/v${FLATBUFFERS_VERSION}/Linux.flatc.binary.g++-13.zip"
+          curl -fsSL -o flatc.zip "https://github.com/OyiGames/flatbuffers/releases/download/${FLATBUFFERS_TAG}/flatc-${FLATBUFFERS_TAG}-linux-x64.zip"
           mkdir -p "$RUNNER_TEMP/flatc"
           unzip -q flatc.zip -d "$RUNNER_TEMP/flatc"
           chmod +x "$RUNNER_TEMP/flatc/flatc"
           echo "$RUNNER_TEMP/flatc" >> "$GITHUB_PATH"
 
-      # C++ headers from the same tag as flatc. The C# runtime is vendored in third_party/.
+      # C++ headers from the same fork tag as flatc. The C# runtime is vendored in third_party/.
       - name: flatbuffers C++ headers
         run: |
-          git clone --quiet --depth 1 --branch "v${FLATBUFFERS_VERSION}" --filter=blob:none --sparse \
-            https://github.com/google/flatbuffers.git "$RUNNER_TEMP/flatbuffers"
+          git clone --quiet --depth 1 --branch "${FLATBUFFERS_TAG}" --filter=blob:none --sparse \
+            https://github.com/OyiGames/flatbuffers.git "$RUNNER_TEMP/flatbuffers"
           git -C "$RUNNER_TEMP/flatbuffers" sparse-checkout set include
 
       - name: Generate, build, round trip

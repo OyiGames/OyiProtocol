@@ -1,28 +1,16 @@
 # FlatBuffers C# runtime (vendored)
 
-`FlatBuffers/` is `net/FlatBuffers/*.cs` from [google/flatbuffers](https://github.com/google/flatbuffers)
-tag `v25.12.19` (commit `7e163021e59cca4f8e1e35a7c828b5c6b7915953`), byte for byte. `LICENSE` is that
-repository's Apache-2.0 license, which covers these files.
+`FlatBuffers/` is `net/FlatBuffers/*.cs` from [OyiGames/flatbuffers](https://github.com/OyiGames/flatbuffers)
+tag `v25.12.19-oyi.1` (commit `1f9c67d789a2f33021022d83b524c83198b1764b`), byte for byte. That fork is
+upstream google/flatbuffers `v25.12.19` plus fixes; see its `oyi/README.md`. `LICENSE` is the Apache-2.0
+license that covers these files.
 
-It is vendored because the C# that flatc 25.12.19 generates calls
-`FlatBufferConstants.FLATBUFFERS_25_12_19()`, and the newest `Google.FlatBuffers` NuGet package (25.2.10)
-does not have it.
-
-## Known issue: the Verifier ignores the file identifier
-
-`Verifier.CheckBufferFromStart` (`FlatBufferVerify.cs`, around line 436) tests
-`identifier.Length == 0` where it means `!= 0`, so the identifier is only checked when it is empty.
-`Envelope.VerifyEnvelope` therefore accepts a structurally valid buffer whose identifier is not
-`OYIP`. Upstream master still has this. The C++ `Verifier::VerifyBufferFromStart` is correct.
-
-The file stays byte for byte. C# readers call both checks:
-
-```csharp
-bool valid = Envelope.EnvelopeBufferHasIdentifier(buffer) && Envelope.VerifyEnvelope(buffer);
-```
-
-`tests/csharp` (`roundtrip check-identifier`) pins the upstream behaviour and starts failing once it is
-fixed; then delete this section.
+It is vendored for two reasons. The C# that flatc 25.12.19 generates calls
+`FlatBufferConstants.FLATBUFFERS_25_12_19()`, which the newest `Google.FlatBuffers` NuGet package (25.2.10)
+does not have. And the fork fixes the Verifier's file identifier check
+([google/flatbuffers#9211](https://github.com/google/flatbuffers/pull/9211)): upstream 25.12.19 accepts a
+wrong or missing identifier, and throws on `nested_flatbuffer` fields. `tests/csharp`
+(`roundtrip check-identifier`) fails if a runtime without that fix is vendored again.
 
 ## Use
 
@@ -34,7 +22,7 @@ Import `OyiProtocol.FlatBuffers.props` into the one project that also compiles t
 
 ## Update
 
-Only together with flatc: bump `FLATC_VERSION` in `scripts/verify.py` and `FLATBUFFERS_VERSION` in
-`.github/workflows/ci.yml`, replace `FlatBuffers/` and `LICENSE` with the files from the new tag (as
-committed upstream, LF), and update the tag and commit above. `scripts/verify.py` fails when
-`FlatBufferConstants.cs` does not match `FLATC_VERSION`.
+Only together with flatc. Bump `FLATC_VERSION` in `scripts/verify.py` and `FLATBUFFERS_TAG` in
+`.github/workflows/ci.yml`. Replace `FlatBuffers/` and `LICENSE` with the files at the new fork tag (use
+`git show <tag>:net/FlatBuffers/<file>` to keep LF endings), and update the tag and commit above.
+`scripts/verify.py` fails when `FlatBufferConstants.cs` does not match `FLATC_VERSION`.

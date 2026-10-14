@@ -60,21 +60,24 @@ The protocol is **0.x**: it is not stable yet and promises no compatibility betw
 ## Consuming the schema
 
 Add the repository as a submodule and check out a tag; generate code from
-`schema/oyi_protocol.fbs` with **flatc 25.12.19**.
+`schema/oyi_protocol.fbs` with **flatc 25.12.19** from
+[OyiGames/flatbuffers](https://github.com/OyiGames/flatbuffers) (upstream plus fixes; release
+`v25.12.19-oyi.1` has flatc for Linux, Windows and macOS).
 
 - C++ (as OyiEngine does): `flatc --cpp --scoped-enums --no-includes`, include
   `<flatbuffers/flatbuffers.h>` before the generated header.
 - C#: `flatc --csharp`, and import
   [`third_party/flatbuffers-net/OyiProtocol.FlatBuffers.props`](third_party/flatbuffers-net) into the
-  same project to compile the vendored runtime (google/flatbuffers `v25.12.19`, `net/FlatBuffers`).
-  The `Google.FlatBuffers` NuGet package does not work: the generated code calls
-  `FlatBufferConstants.FLATBUFFERS_25_12_19()`, and the newest package (25.2.10) does not have it.
+  same project to compile the vendored runtime (OyiGames/flatbuffers `v25.12.19-oyi.1`,
+  `net/FlatBuffers`). The `Google.FlatBuffers` NuGet package does not work: the generated code calls
+  `FlatBufferConstants.FLATBUFFERS_25_12_19()`, which the newest package (25.2.10) does not have, and
+  upstream's Verifier skips the file identifier check.
   [`tests/csharp/RoundTrip.csproj`](tests/csharp/RoundTrip.csproj) is a working example.
 
 ## Verifying locally
 
 ```sh
-python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <google/flatbuffers at v25.12.19, for include/> --cxx <C++20 compiler>
+python scripts/verify.py --flatc <flatc 25.12.19> --flatbuffers-root <OyiGames/flatbuffers at v25.12.19-oyi.1, for include/> --cxx <C++20 compiler>
 ```
 
 The script checks the flatc version, source conventions and the vendored runtime's version, runs `flatc --conform` against the
