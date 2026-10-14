@@ -205,10 +205,9 @@ namespace Oyi.Protocol.RoundTrip
             return failures == 0 ? 0 : 1;
         }
 
-        // The vendored runtime's Verifier ignores the file identifier (see
-        // third_party/flatbuffers-net/README.md), so readers must also call EnvelopeBufferHasIdentifier.
-        // The second check pins that upstream behaviour: when it fails, upstream fixed the bug, and the
-        // README note can go.
+        // Upstream 25.12.19's C# Verifier skipped the file identifier (google/flatbuffers#9211); the
+        // vendored runtime comes from OyiGames/flatbuffers, which fixes it. This fails if an unfixed
+        // runtime is vendored again.
         private static int CheckIdentifier()
         {
             var builder = new FlatBufferBuilder(64);
@@ -217,11 +216,10 @@ namespace Oyi.Protocol.RoundTrip
             builder.Finish(Envelope.CreateEnvelope(builder, Channel.Command, Message.Hello, hello.Value).Value, "XXXX");
             var buffer = new ByteBuffer(builder.SizedByteArray());
             Check(!Envelope.EnvelopeBufferHasIdentifier(buffer), "EnvelopeBufferHasIdentifier rejects XXXX");
-            Check(Envelope.VerifyEnvelope(buffer),
-                "VerifyEnvelope now checks the file identifier: upstream fixed it, update third_party/flatbuffers-net/README.md");
+            Check(!Envelope.VerifyEnvelope(buffer), "VerifyEnvelope rejects XXXX (needs the #9211 fix)");
             if (failures == 0)
             {
-                Console.WriteLine("csharp: a foreign file identifier is rejected by EnvelopeBufferHasIdentifier (VerifyEnvelope alone does not)");
+                Console.WriteLine("csharp: a foreign file identifier fails verification");
             }
             return failures == 0 ? 0 : 1;
         }
